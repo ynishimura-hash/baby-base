@@ -150,13 +150,22 @@ export default function BabyBaseTop() {
                                     </div>
                                 </motion.div>
                             ))}
-                            {isTyping && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                                    <div className="bg-white border border-pink-50 px-4 py-2 rounded-2xl flex gap-1">
-                                        <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
-                                        <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
-                                        <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
-                                    </div>
+
+                            {/* Consultation Redirect Button */}
+                            {chatInput && !isTyping && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="flex justify-center mt-4"
+                                >
+                                    <Link
+                                        href={`/babybase/ai-guidance?q=${encodeURIComponent(chatInput)}`}
+                                        className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-8 py-3 rounded-full font-black text-sm shadow-xl shadow-pink-200 flex items-center gap-2 hover:scale-105 transition-transform animate-pulse"
+                                    >
+                                        <Sparkles size={16} />
+                                        AI案内所で詳しく相談する
+                                        <ChevronRight size={16} />
+                                    </Link>
                                 </motion.div>
                             )}
                         </div>
@@ -171,18 +180,19 @@ export default function BabyBaseTop() {
                                     onCompositionEnd={() => setIsComposing(false)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !isComposing) {
-                                            handleSendChat();
+                                            // Prevent default Enter behavior to keep input focused and show button
+                                            e.preventDefault();
                                         }
                                     }}
                                     placeholder="今の悩みをお聞かせください..."
                                     className="flex-1 bg-slate-50 border-none rounded-[1.5rem] py-4 px-6 text-sm font-bold focus:ring-2 focus:ring-pink-100 shadow-inner placeholder:text-slate-300"
                                 />
-                                <button
-                                    onClick={handleSendChat}
-                                    className="w-12 h-12 bg-pink-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200 hover:scale-105 active:scale-95 transition-all"
+                                <Link
+                                    href={`/babybase/ai-guidance?q=${encodeURIComponent(chatInput)}`}
+                                    className={`w-12 h-12 bg-pink-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200 hover:scale-105 active:scale-95 transition-all ${!chatInput.trim() ? 'opacity-50 pointer-events-none' : ''}`}
                                 >
                                     <Send size={22} />
-                                </button>
+                                </Link>
                             </div>
                         </div>
                     </div>

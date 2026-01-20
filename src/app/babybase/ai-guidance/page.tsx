@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useAppStore } from '@/lib/appStore';
 import {
     Send, ArrowLeft, MessageCircle, Sparkles,
@@ -8,6 +8,7 @@ import {
     User, BookOpen, Star, Calendar, ArrowUpRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Recommendation {
@@ -30,7 +31,19 @@ interface Message {
 }
 
 export default function AIGuidance() {
+    return (
+        <Suspense fallback={<div className="h-screen bg-[#FFFBF0] flex items-center justify-center text-pink-500 font-bold">Loading AI Guidance...</div>}>
+            <AIGuidanceContent />
+        </Suspense>
+    );
+}
+
+function AIGuidanceContent() {
     const { bbSpecialists, bbArticles, bbPosts } = useAppStore();
+    const searchParams = useSearchParams();
+    const query = searchParams.get('q');
+
+    // Initial message state depends on whether there's a query
     const [messages, setMessages] = useState<Message[]>([
         {
             id: '1',
@@ -43,6 +56,7 @@ export default function AIGuidance() {
     const [isTyping, setIsTyping] = useState(false);
     const [isComposing, setIsComposing] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const hasAutoSearched = useRef(false);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -50,27 +64,33 @@ export default function AIGuidance() {
         }
     }, [messages, isTyping]);
 
-    const handleSend = async () => {
-        if (!input.trim()) return;
+    // Handle initial query from URL
+    useEffect(() => {
+        if (query && !hasAutoSearched.current) {
+            hasAutoSearched.current = true;
+            // Slightly delay to allow UI to mount properly
+            setTimeout(() => {
+                const autoMsg: Message = {
+                    id: Date.now().toString(),
+                    text: query,
+                    sender: 'user',
+                    timestamp: Date.now()
+                };
+                setMessages(prev => [...prev, autoMsg]);
+                setIsTyping(true);
+                // Call API
+                executeAI(query, [...messages, autoMsg]);
+            }, 500);
+        }
+    }, [query]);
 
-        const userMsg: Message = {
-            id: Date.now().toString(),
-            text: input,
-            sender: 'user',
-            timestamp: Date.now()
-        };
-
-        const updatedMessages = [...messages, userMsg];
-        setMessages(updatedMessages);
-        setInput('');
-        setIsTyping(true);
-
+    const executeAI = async (text: string, currentHistory: Message[]) => {
         try {
             const response = await fetch('/api/babybase/ai-analysis', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: updatedMessages,
+                    messages: currentHistory,
                     specialists: bbSpecialists,
                     articles: bbArticles,
                     posts: bbPosts
@@ -90,7 +110,7 @@ export default function AIGuidance() {
                     return a ? { type: 'article', id: a.id, title: a.title, description: "役立つ知識を読む", image: a.image, category: a.category, href: `/babybase/learning/${a.id}` } : null;
                 } else if (r.type === 'post') {
                     const p = bbPosts.find(post => post.id === r.id);
-                    return p ? { type: 'post', id: p.id, title: "最新の投稿", description: p.content.slice(0, 30), image: p.image || '', href: `/babybase/search?q=${encodeURIComponent(input)}` } : null;
+                    return p ? { type: 'post', id: p.id, title: "最新の投稿", description: p.content.slice(0, 30), image: p.image || '', href: `/babybase/search?q=${encodeURIComponent(text)}` } : null;
                 }
                 return null;
             }).filter(Boolean);
@@ -116,6 +136,24 @@ export default function AIGuidance() {
         } finally {
             setIsTyping(false);
         }
+    };
+
+    const handleSend = async () => {
+        if (!input.trim()) return;
+
+        const userMsg: Message = {
+            id: Date.now().toString(),
+            text: input,
+            sender: 'user',
+            timestamp: Date.now()
+        };
+
+        const updatedMessages = [...messages, userMsg];
+        setMessages(updatedMessages);
+        setInput('');
+        setIsTyping(true);
+
+        await executeAI(input, updatedMessages);
     };
 
     return (
