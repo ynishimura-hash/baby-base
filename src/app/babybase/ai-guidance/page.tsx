@@ -4,10 +4,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/appStore';
 import {
     Send, ArrowLeft, MessageCircle, Sparkles,
-    ChevronRight, Baby, Heart, Shield, RefreshCcw
+    ChevronRight, Baby, Heart, Shield, RefreshCcw,
+    User, BookOpen, Star, Calendar, ArrowUpRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+
+interface Recommendation {
+    type: 'specialist' | 'article' | 'post';
+    id: string;
+    title: string;
+    description: string;
+    image: string;
+    category?: string;
+    href: string;
+}
 
 interface Message {
     id: string;
@@ -15,10 +26,11 @@ interface Message {
     sender: 'user' | 'ai';
     timestamp: number;
     actions?: { label: string, href: string }[];
+    recommendations?: Recommendation[];
 }
 
 export default function AIGuidance() {
-    const { bbSpecialists } = useAppStore();
+    const { bbSpecialists, bbArticles, bbPosts } = useAppStore();
     const [messages, setMessages] = useState<Message[]>([
         {
             id: '1',
@@ -37,7 +49,7 @@ export default function AIGuidance() {
         }
     }, [messages, isTyping]);
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!input.trim()) return;
 
         const userMsg: Message = {
@@ -47,57 +59,78 @@ export default function AIGuidance() {
             timestamp: Date.now()
         };
 
-        setMessages(prev => [...prev, userMsg]);
+        const updatedMessages = [...messages, userMsg];
+        setMessages(updatedMessages);
         setInput('');
         setIsTyping(true);
 
-        // Simulated AI response logic
-        setTimeout(() => {
-            const lowerInput = input.toLowerCase();
-            let responseText = "お話ありがとうございます。そのお悩みであれば、こちらの専門家が力添えできるかもしれません。";
-            let suggestedActions: { label: string, href: string }[] = [];
+        try {
+            const response = await fetch('/api/babybase/ai-analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: updatedMessages,
+                    specialists: bbSpecialists,
+                    articles: bbArticles,
+                    posts: bbPosts
+                })
+            });
 
-            if (lowerInput.includes('乳') || lowerInput.includes('ミルク') || lowerInput.includes('産後')) {
-                const midwife = bbSpecialists.find(s => s.category === '妊娠・出産');
-                responseText = `母乳や産後の体調のお悩みですね。助産師の${midwife?.name}さんに相談してみるのはいかがでしょうか？`;
-                suggestedActions = [{ label: `${midwife?.name}さんのプロフィール`, href: `/babybase/specialists/${midwife?.id}` }];
-            } else if (lowerInput.includes('寝ない') || lowerInput.includes('夜泣き') || lowerInput.includes('ねんね')) {
-                const sleep = bbSpecialists.find(s => s.category === '赤ちゃん・育児' && s.tags.includes('夜泣き'));
-                responseText = `寝かしつけや夜泣きは体力的にも大変ですよね。ねんねコンサルタントの${sleep?.name}さんが専門的な知識を持っています。`;
-                suggestedActions = [{ label: `${sleep?.name}さんの詳細を見る`, href: `/babybase/specialists/${sleep?.id}` }];
-            } else if (lowerInput.includes('離乳食') || lowerInput.includes('食べない') || lowerInput.includes('栄養')) {
-                const nut = bbSpecialists.find(s => s.category === '離乳食・健康');
-                responseText = `離乳食の進め方や偏食、心配になりますよね。栄養士の${nut?.name}さんがレシピ作成などのサポートを行っています。`;
-                suggestedActions = [{ label: `${nut?.name}さんに相談`, href: `/babybase/specialists/${nut?.id}` }];
-            } else {
-                responseText = "育児の悩みは尽きないですよね。まずは、お近くの助産師さんや、子育て相談の専門家に今の気持ちを話してみるのが良いかもしれません。";
-                suggestedActions = [{ label: "専門家一覧を見る", href: "/babybase/specialists" }];
-            }
+            if (!response.ok) throw new Error('AI Analysis failed');
+            const data = await response.json();
+
+            // Map IDs back to full objects
+            const recs: Recommendation[] = data.recommendations.map((r: any) => {
+                if (r.type === 'specialist') {
+                    const s = bbSpecialists.find(spec => spec.id === r.id);
+                    return s ? { type: 'specialist', id: s.id, title: `${s.name}先生`, description: s.description, image: s.image, category: s.category, href: `/babybase/specialists/${s.id}` } : null;
+                } else if (r.type === 'article') {
+                    const a = bbArticles.find(art => art.id === r.id);
+                    return a ? { type: 'article', id: a.id, title: a.title, description: "役立つ知識を読む", image: a.image, category: a.category, href: `/babybase/learning/${a.id}` } : null;
+                } else if (r.type === 'post') {
+                    const p = bbPosts.find(post => post.id === r.id);
+                    return p ? { type: 'post', id: p.id, title: "最新の投稿", description: p.content.slice(0, 30), image: p.image || '', href: `/babybase/search?q=${encodeURIComponent(input)}` } : null;
+                }
+                return null;
+            }).filter(Boolean);
 
             const aiMsg: Message = {
                 id: (Date.now() + 1).toString(),
-                text: responseText,
+                text: data.responseText,
                 sender: 'ai',
                 timestamp: Date.now(),
-                actions: suggestedActions
+                recommendations: recs
             };
 
             setMessages(prev => [...prev, aiMsg]);
+        } catch (error) {
+            console.error('Chat Error:', error);
+            const errorMsg: Message = {
+                id: (Date.now() + 1).toString(),
+                text: '申し訳ありません。現在AI案内所が混み合っております。少し時間を置いて再度お試しいただくか、専門家一覧より直接お探しください。',
+                sender: 'ai',
+                timestamp: Date.now()
+            };
+            setMessages(prev => [...prev, errorMsg]);
+        } finally {
             setIsTyping(false);
-        }, 1500);
+        }
     };
 
     return (
         <div className="h-screen bg-[#FFFBF0] flex flex-col overflow-hidden">
             {/* Header */}
-            <header className="px-6 py-6 bg-white border-b border-pink-50 flex items-center justify-between flex-shrink-0">
+            <header className="px-6 py-6 bg-white border-b border-pink-50 flex items-center justify-between flex-shrink-0 z-10 shadow-sm">
                 <div className="flex items-center gap-4">
                     <Link href="/babybase" className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
                         <ArrowLeft size={20} />
                     </Link>
                     <div>
                         <h1 className="text-lg font-black text-slate-800 tracking-tight">AI案内所</h1>
-                        <p className="text-[10px] font-bold text-pink-500 uppercase tracking-widest">Guidance Concierge</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Concierge</p>
+                        </div>
                     </div>
                 </div>
                 <button
@@ -109,7 +142,7 @@ export default function AIGuidance() {
             </header>
 
             {/* Chat Area */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
                 <AnimatePresence mode="popLayout">
                     {messages.map((msg) => (
                         <motion.div
@@ -118,33 +151,65 @@ export default function AIGuidance() {
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
-                            <div className={`max-w-[85%] space-y-4`}>
-                                <div className={`px-5 py-4 rounded-[2rem] text-sm font-bold leading-relaxed shadow-sm ${msg.sender === 'user'
+                            <div className={`max-w-[90%] md:max-w-[80%] space-y-3`}>
+                                <div className={`px-5 py-4 rounded-[2.5rem] text-sm font-bold leading-relaxed shadow-sm ${msg.sender === 'user'
                                     ? 'bg-slate-900 text-white rounded-tr-none'
                                     : 'bg-white text-slate-700 rounded-tl-none border border-pink-50'
                                     }`}>
                                     {msg.text}
                                 </div>
 
-                                {msg.actions && (
-                                    <div className="space-y-2">
-                                        {msg.actions.map(action => (
-                                            <Link key={action.label} href={action.href} className="inline-flex items-center gap-2 bg-pink-500 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg shadow-pink-200 hover:bg-pink-600 transition-all group">
-                                                {action.label}
-                                                <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                                            </Link>
-                                        ))}
-                                    </div>
+                                {msg.recommendations && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 }}
+                                        className="bg-white rounded-[2rem] border-2 border-pink-100 p-4 shadow-xl shadow-pink-100/50 space-y-3"
+                                    >
+                                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-pink-50">
+                                            <div className="p-1.5 bg-pink-100 rounded-lg text-pink-500">
+                                                <Sparkles size={16} fill="currentColor" />
+                                            </div>
+                                            <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">あなたへのおすすめガイド</span>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {msg.recommendations.map(reco => (
+                                                <Link key={reco.id} href={reco.href} className="flex gap-3 p-2 rounded-2xl hover:bg-pink-50 transition-colors group">
+                                                    <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-slate-100">
+                                                        <img src={reco.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                                            {reco.type === 'specialist' ? <User size={10} className="text-pink-400" /> : <BookOpen size={10} className="text-blue-400" />}
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{reco.category}</span>
+                                                        </div>
+                                                        <h4 className="text-xs font-black text-slate-800 line-clamp-1 group-hover:text-pink-500 transition-colors">{reco.title}</h4>
+                                                        <p className="text-[10px] font-bold text-slate-400 line-clamp-1 mt-0.5">{reco.description}</p>
+                                                    </div>
+                                                    <div className="self-center p-1.5 rounded-full bg-slate-50 text-slate-300 group-hover:bg-pink-500 group-hover:text-white transition-all">
+                                                        <ArrowUpRight size={14} />
+                                                    </div>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                        <Link href="/babybase/specialists" className="block text-center py-2 text-[10px] font-black text-pink-500 hover:text-pink-600 transition-colors border-t border-pink-50 mt-2 pt-2">
+                                            すべての専門家を見る
+                                        </Link>
+                                    </motion.div>
                                 )}
                             </div>
                         </motion.div>
                     ))}
                     {isTyping && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                            <div className="bg-white border border-pink-50 px-4 py-2 rounded-2xl flex gap-1">
-                                <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
-                                <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
-                                <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
+                            <div className="bg-white border border-pink-50 px-5 py-3 rounded-[2rem] flex items-center gap-2">
+                                <div className="flex gap-1">
+                                    <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
+                                    <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
+                                    <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-400">AIが情報を整理しています...</span>
                             </div>
                         </motion.div>
                     )}
@@ -152,27 +217,27 @@ export default function AIGuidance() {
             </div>
 
             {/* Input Area */}
-            <div className="p-6 bg-white border-t border-pink-50 flex-shrink-0">
-                <div className="relative">
+            <div className="p-4 md:p-6 bg-white border-t border-pink-50 flex-shrink-0">
+                <div className="max-w-3xl mx-auto w-full relative">
                     <input
                         type="text"
                         placeholder="（例）寝かしつけが大変で困っています..."
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                        className="w-full bg-slate-50 border-none rounded-[2rem] py-5 pl-6 pr-16 font-bold text-sm focus:ring-2 focus:ring-pink-100 transition-all"
+                        className="w-full bg-slate-50 border-none rounded-[2.5rem] py-5 pl-8 pr-16 font-bold text-sm focus:ring-2 focus:ring-pink-100 transition-all shadow-inner"
                     />
                     <button
                         onClick={handleSend}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 bg-pink-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-pink-200 active:scale-95 transition-all"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 bg-pink-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-pink-200 active:scale-95 transition-all z-10"
                     >
                         <Send size={20} />
                     </button>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                    <button onClick={() => setInput('離乳食について')} className="px-3 py-1 bg-pink-50 rounded-full text-[10px] font-black text-pink-500 border border-pink-100 italic">#離乳食</button>
-                    <button onClick={() => setInput('夜泣きがひどい')} className="px-3 py-1 bg-pink-50 rounded-full text-[10px] font-black text-pink-500 border border-pink-100 italic">#夜泣き</button>
-                    <button onClick={() => setInput('骨盤矯正したい')} className="px-3 py-1 bg-pink-50 rounded-full text-[10px] font-black text-pink-500 border border-pink-100 italic">#産後ケア</button>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    <button onClick={() => setInput('離乳食について')} className="px-4 py-1.5 bg-white rounded-full text-[10px] font-black text-pink-500 border border-pink-100 shadow-sm hover:bg-pink-50 transition-colors"># 離乳食のお悩み</button>
+                    <button onClick={() => setInput('夜泣きがひどい')} className="px-4 py-1.5 bg-white rounded-full text-[10px] font-black text-pink-500 border border-pink-100 shadow-sm hover:bg-pink-50 transition-colors"># 夜泣き・寝かしつけ</button>
+                    <button onClick={() => setInput('骨盤矯正したい')} className="px-4 py-1.5 bg-white rounded-full text-[10px] font-black text-pink-500 border border-pink-100 shadow-sm hover:bg-pink-50 transition-colors"># 産後・ボティケア</button>
                 </div>
             </div>
         </div>
