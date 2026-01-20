@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, MapPin, Briefcase, ChevronRight, Search, Map, Wallet, Building2, Users } from 'lucide-react';
@@ -13,7 +13,7 @@ const AREA_MAPPING: Record<string, string[]> = {
     nanyo: ['宇和島', '八幡浜', '大洲', '西予', '内子', '伊方', '松野', '鬼北', '愛南']
 };
 
-export default function SearchPage() {
+function SearchResultsContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
@@ -47,11 +47,7 @@ export default function SearchPage() {
             const company = COMPANIES.find(c => c.id === job.companyId);
             const matchesKeyword = matchText(job.title) || matchText(job.description) || matchText(company?.name);
             const matchesArea = matchArea(job.location) || matchArea(company?.location);
-            const matchesIndustry = matchIndustry(company?.industry); // Jobs don't strictly have industry, inherit from company? Or category?
-
-            // Note: Job 'category' in dummyData is like '新卒', '中途'. 
-            // The search bar 'industry' selector uses values like 'IT・システム開発'.
-            // So we should check company.industry for jobs too.
+            const matchesIndustry = matchIndustry(company?.industry);
 
             return matchesKeyword && matchesArea && matchesIndustry;
         });
@@ -315,5 +311,13 @@ function ArrowRight({ size = 24 }: { size?: number }) {
             <path d="M5 12h14" />
             <path d="m12 5 7 7-7 7" />
         </svg>
+    );
+}
+
+export default function SearchPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black text-blue-500">Loading...</div>}>
+            <SearchResultsContent />
+        </Suspense>
     );
 }

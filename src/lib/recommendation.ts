@@ -5,6 +5,11 @@ import { getPublicValueCards } from './analysisUtils';
 /**
  * 自己分析の結果に基づいておすすめの求人とコースを抽出する
  */
+export interface RecommendationResult {
+    jobs: Job[];
+    courses: Course[];
+}
+
 export function getRecommendations(
     analysis: UserAnalysis,
     jobs: Job[],

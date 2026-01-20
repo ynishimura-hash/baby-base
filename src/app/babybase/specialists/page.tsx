@@ -16,7 +16,7 @@ export default function SpecialistDirectory() {
     const [searchQuery, setSearchQuery] = useState('');
 
     const categories: (SpecialistCategory | 'すべて')[] = [
-        'すべて', '助産師', 'ベビーマッサージ', '栄養士', 'ねんねコンサルタント', '骨盤軸整体'
+        'すべて', '妊娠・出産', '赤ちゃん・育児', '離乳食・健康', '夫婦・家庭', '保活・自分', 'おでかけ・お店', 'リラックス'
     ];
 
     const filteredSpecialists = bbSpecialists.filter(s => {
@@ -57,8 +57,8 @@ export default function SpecialistDirectory() {
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
                             className={`px-5 py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all border ${selectedCategory === cat
-                                    ? 'bg-pink-500 text-white border-pink-500 shadow-lg shadow-pink-200'
-                                    : 'bg-white text-slate-400 border-slate-100 hover:border-pink-200'
+                                ? 'bg-pink-500 text-white border-pink-500 shadow-lg shadow-pink-200'
+                                : 'bg-white text-slate-400 border-slate-100 hover:border-pink-200'
                                 }`}
                         >
                             {cat}

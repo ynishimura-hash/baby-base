@@ -58,15 +58,15 @@ export default function AIGuidance() {
             let suggestedActions: { label: string, href: string }[] = [];
 
             if (lowerInput.includes('乳') || lowerInput.includes('ミルク') || lowerInput.includes('産後')) {
-                const midwife = bbSpecialists.find(s => s.category === '助産師');
+                const midwife = bbSpecialists.find(s => s.category === '妊娠・出産');
                 responseText = `母乳や産後の体調のお悩みですね。助産師の${midwife?.name}さんに相談してみるのはいかがでしょうか？`;
                 suggestedActions = [{ label: `${midwife?.name}さんのプロフィール`, href: `/babybase/specialists/${midwife?.id}` }];
             } else if (lowerInput.includes('寝ない') || lowerInput.includes('夜泣き') || lowerInput.includes('ねんね')) {
-                const sleep = bbSpecialists.find(s => s.category === 'ねんねコンサルタント');
+                const sleep = bbSpecialists.find(s => s.category === '赤ちゃん・育児' && s.tags.includes('夜泣き'));
                 responseText = `寝かしつけや夜泣きは体力的にも大変ですよね。ねんねコンサルタントの${sleep?.name}さんが専門的な知識を持っています。`;
                 suggestedActions = [{ label: `${sleep?.name}さんの詳細を見る`, href: `/babybase/specialists/${sleep?.id}` }];
             } else if (lowerInput.includes('離乳食') || lowerInput.includes('食べない') || lowerInput.includes('栄養')) {
-                const nut = bbSpecialists.find(s => s.category === '栄養士');
+                const nut = bbSpecialists.find(s => s.category === '離乳食・健康');
                 responseText = `離乳食の進め方や偏食、心配になりますよね。栄養士の${nut?.name}さんがレシピ作成などのサポートを行っています。`;
                 suggestedActions = [{ label: `${nut?.name}さんに相談`, href: `/babybase/specialists/${nut?.id}` }];
             } else {
@@ -120,8 +120,8 @@ export default function AIGuidance() {
                         >
                             <div className={`max-w-[85%] space-y-4`}>
                                 <div className={`px-5 py-4 rounded-[2rem] text-sm font-bold leading-relaxed shadow-sm ${msg.sender === 'user'
-                                        ? 'bg-slate-900 text-white rounded-tr-none'
-                                        : 'bg-white text-slate-700 rounded-tl-none border border-pink-50'
+                                    ? 'bg-slate-900 text-white rounded-tr-none'
+                                    : 'bg-white text-slate-700 rounded-tl-none border border-pink-50'
                                     }`}>
                                     {msg.text}
                                 </div>

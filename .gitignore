@@ -39,3 +39,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+public/videos/reels/murakami_1.mp4
+public/videos/sample_reel.mp4
