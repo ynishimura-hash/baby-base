@@ -41,6 +41,7 @@ export default function AIGuidance() {
     ]);
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const [isComposing, setIsComposing] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -224,8 +225,10 @@ export default function AIGuidance() {
                         placeholder="（例）寝かしつけが大変で困っています..."
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
+                        onCompositionStart={() => setIsComposing(true)}
+                        onCompositionEnd={() => setIsComposing(false)}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                            if (e.key === 'Enter' && !isComposing) {
                                 handleSend();
                             }
                         }}

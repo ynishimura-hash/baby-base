@@ -20,6 +20,7 @@ export default function BabyBaseTop() {
     const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([
         { role: 'ai', text: 'こんにちは！育児のお悩み、何でも聞かせてくださいね。ぴったりの専門家をご案内します。' }
     ]);
+    const [isComposing, setIsComposing] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -166,8 +167,10 @@ export default function BabyBaseTop() {
                                     type="text"
                                     value={chatInput}
                                     onChange={(e) => setChatInput(e.target.value)}
+                                    onCompositionStart={() => setIsComposing(true)}
+                                    onCompositionEnd={() => setIsComposing(false)}
                                     onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                                        if (e.key === 'Enter' && !isComposing) {
                                             handleSendChat();
                                         }
                                     }}

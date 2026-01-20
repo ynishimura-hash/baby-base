@@ -62,11 +62,14 @@ export async function POST(req: Request) {
             })
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({ error: { message: 'Failed to parse Gemini response as JSON' } }));
 
         if (!response.ok) {
             console.error('[AI Analysis] Gemini API Error Response:', data);
-            return NextResponse.json({ error: data.error?.message || 'Gemini API Error' }, { status: response.status });
+            return NextResponse.json({
+                error: data.error?.message || 'Gemini API Error',
+                details: data.error || 'No details'
+            }, { status: response.status });
         }
 
         const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
