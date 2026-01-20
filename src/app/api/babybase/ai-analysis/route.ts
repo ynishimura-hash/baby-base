@@ -7,13 +7,15 @@ export async function GET(req: Request) {
     const isDebug = searchParams.get('debug') === 'true';
 
     if (isDebug) {
-        const key = process.env.GEMINI_API_KEY;
+        const key = process.env.GEMINI_API_KEY || process.env['GEMINI_API_KEY'];
         return NextResponse.json({
             status: 'debug_mode',
             hasKey: !!key,
             keyLength: key ? key.length : 0,
             maskedKey: key ? `${key.substring(0, 4)}...${key.substring(key.length - 4)}` : 'none',
-            envKeys: Object.keys(process.env).filter(k => k.includes('API') || k.includes('KEY')),
+            nextRuntime: (globalThis as any).process?.env?.NEXT_RUNTIME || 'unknown',
+            envKeys: Object.keys(process.env).sort(),
+            allEnvPrefixes: Object.keys(process.env).map(k => k.split('_')[0]).filter((v, i, a) => a.indexOf(v) === i),
             timestamp: new Date().toISOString()
         });
     }
